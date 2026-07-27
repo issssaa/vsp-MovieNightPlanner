@@ -24,6 +24,7 @@ from app.schemas.user_media import (
     StatusUpdate,
     reject_progress_on_movie,
 )
+from app.services.catalogue_service import CatalogueError, get_catalogue_service
 
 router = APIRouter(prefix="/media", tags=["media"])
 
@@ -90,19 +91,52 @@ def find_or_create_media(db: Session, payload: EntryCreate) -> Media:
             # request are ignored on purpose: the stored row is the shared truth.
             return existing
 
-        # PHASE 2 HANDOFF: replace this with a CatalogueService lookup by tmdb_id
-        # so the backend stops trusting client-supplied metadata, as required by
-        # the design document. Until that exists there is no offline way to learn
-        # the title, so we require the client to send it.
-        if not payload.title:
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
-                detail=(
-                    f"tmdb_id {payload.tmdb_id} is not in the local catalogue yet, "
-                    "so 'title' is required to create it. This requirement goes "
-                    "away in Phase 2 once metadata is fetched from TMDB."
-                ),
+        # Resolve metadata from the catalogue by id, NOT from the request body.
+        # The design document is explicit: "It does not blindly trust title,
+        # poster, or overview values supplied by the browser."
+        try:
+            resolved = get_catalogue_service().get_details(
+                payload.tmdb_id, payload.media_type.value
             )
+        except CatalogueError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail={
+                    "error": {
+                        "code": exc.code,
+                        "message": exc.message,
+                        "retryable": exc.retryable,
+                    }
+                },
+            ) from exc
+
+        if resolved is not None:
+            media = Media(
+                tmdb_id=resolved.tmdb_id,
+                media_type=resolved.media_type,
+                source=Source.TMDB.value,
+                title=resolved.title,
+                original_title=resolved.original_title,
+                overview=resolved.overview,
+                poster_path=resolved.poster_path,
+                release_year=resolved.release_year,
+                total_seasons=resolved.total_seasons,
+                total_episodes=resolved.total_episodes,
+            )
+            db.add(media)
+            db.flush()
+            return media
+
+        # The catalogue does not know this id. Rather than inventing a row from
+        # unverified input, refuse and point at the manual path.
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail=(
+                f"tmdb_id {payload.tmdb_id} was not found in the catalogue for "
+                f"media_type '{payload.media_type.value}'. Search first to get a "
+                "valid id, or use source='manual' to add the title by hand."
+            ),
+        )
 
     # Manual entries always create their own row. Two users who each add the same
     # title by hand therefore get separate rows and will NOT match in group

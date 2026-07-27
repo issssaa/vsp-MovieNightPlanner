@@ -12,7 +12,7 @@ recommendation endpoint takes several users and returns titles their watchlists 
 This means the data model is **multi-user**: media metadata is shared, while status, progress,
 rating, and review are per-user.
 
-Spec: `MovieNightPlanner-design-document-filled.md`. NOTE — that document is currently written for
+Spec: `README.md`. NOTE — that document is currently written for
 a single-user tracker and lists multi-user recommendation in its Won't tier. It must be updated to
 match this overview; until then, this file is authoritative on scope.
 

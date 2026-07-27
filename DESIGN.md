@@ -1,7 +1,7 @@
 # DESIGN.md — superseded
 
 This was the first design sketch. It has been **superseded by
-[`MovieNightPlanner-design-document-filled.md`](MovieNightPlanner-design-document-filled.md)**,
+[`README.md`](README.md)**,
 which is the authoritative spec. Read that file, not this one.
 
 This file is kept only to record where the data model came from and what changed, so nobody
