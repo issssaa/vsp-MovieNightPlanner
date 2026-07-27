@@ -1,5 +1,16 @@
+# Python
 __pycache__/
 *.py[cod]
+
+# Virtual environments
 .venv/
 venv/
+
+# Local database
 *.db
+
+# Secrets — never commit the real token; commit .env.example instead
+.env
+
+# IDE
+.idea/
